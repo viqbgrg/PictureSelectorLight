@@ -268,12 +268,18 @@ public class PictureImageGridAdapter extends RecyclerView.Adapter<RecyclerView.V
                 return;
             }
         }
-        if (selectImages.size() >= maxSelectNum && !isChecked) {
-            boolean eqImg = pictureType.startsWith(PictureConfig.IMAGE);
-            String str = eqImg ? context.getString(R.string.picture_message_max_num, maxSelectNum)
-                    : context.getString(R.string.picture_message_video_max_num, maxSelectNum);
+        if (eqImg) {
+          if (selectImages.size() >= maxSelectNum && !isChecked) {
+            String str = context.getString(R.string.picture_message_max_num, maxSelectNum);
             Toast.makeText(context, str, Toast.LENGTH_LONG).show();
             return;
+          }
+        }else {
+          if (selectImages.size() >= 1 && !isChecked) {
+            String str = context.getString(R.string.picture_message_max_num, 1);
+            Toast.makeText(context, str, Toast.LENGTH_LONG).show();
+            return;
+          }
         }
 
         if (isChecked) {
