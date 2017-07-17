@@ -22,6 +22,7 @@ import java.util.List;
 public final class PictureSelectionConfig implements Serializable {
     public int mimeType;
     public boolean camera;
+    public String outputCameraPath;
     @StyleRes
     public int themeStyleId;
     public int selectionMode;
@@ -38,16 +39,19 @@ public final class PictureSelectionConfig implements Serializable {
     public int compressHeight;
     public int overrideWidth;
     public int overrideHeight;
+    public float sizeMultiplier;
+    public boolean zoomAnim;
     public boolean isCompress;
     public boolean isCamera;
     public boolean isGif;
     public boolean enablePreview;
     public boolean enPreviewVideo;
+    public boolean enablePreviewAudio;
     public boolean checkNumMode;
     public boolean openClickSound;
     public boolean previewEggs;
 
-    public List<LocalMedia> selectionMedias = new ArrayList<>();
+    public List<LocalMedia> selectionMedias;
 
     private void reset() {
         mimeType = PictureConfig.TYPE_IMAGE;
@@ -67,7 +71,9 @@ public final class PictureSelectionConfig implements Serializable {
         compressHeight = 0;
         overrideWidth = 0;
         overrideHeight = 0;
+        sizeMultiplier = 0.5f;
         isCompress = false;
+        enablePreviewAudio = true;
         isCamera = true;
         isGif = false;
         enablePreview = true;
@@ -75,6 +81,8 @@ public final class PictureSelectionConfig implements Serializable {
         checkNumMode = false;
         openClickSound = false;
         previewEggs = false;
+        zoomAnim = true;
+        outputCameraPath = "";
         selectionMedias = new ArrayList<>();
         DebugUtil.i("*******", "reset PictureSelectionConfig");
     }

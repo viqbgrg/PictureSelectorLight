@@ -1,7 +1,10 @@
 package com.luck.picture.lib.adapter;
 
+import android.animation.AnimatorSet;
+import android.animation.ObjectAnimator;
 import android.content.Context;
 import android.graphics.PorterDuff;
+import android.graphics.drawable.Drawable;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
@@ -16,6 +19,8 @@ import android.widget.Toast;
 
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.load.engine.DiskCacheStrategy;
+import com.bumptech.glide.load.resource.bitmap.BitmapTransitionOptions;
+import com.bumptech.glide.request.RequestOptions;
 import com.luck.picture.lib.R;
 import com.luck.picture.lib.anim.OptAnimationLoader;
 import com.luck.picture.lib.config.PictureConfig;
@@ -24,6 +29,7 @@ import com.luck.picture.lib.config.PictureSelectionConfig;
 import com.luck.picture.lib.entity.LocalMedia;
 import com.luck.picture.lib.tools.DateUtils;
 import com.luck.picture.lib.tools.DebugUtil;
+import com.luck.picture.lib.tools.StringUtils;
 import com.luck.picture.lib.tools.VoiceUtils;
 
 import java.util.ArrayList;
@@ -33,7 +39,7 @@ import java.util.List;
  * Created by dee on 15/11/19.
  */
 public class PictureImageGridAdapter extends RecyclerView.Adapter<RecyclerView.ViewHolder> {
-
+    private final static int DURATION = 450;
     private Context context;
     private boolean showCamera = true;
     private OnPhotoSelectChangedListener imageSelectChangedListener;
@@ -43,11 +49,15 @@ public class PictureImageGridAdapter extends RecyclerView.Adapter<RecyclerView.V
     private boolean enablePreview;
     private int selectMode = PictureConfig.MULTIPLE;
     private boolean enablePreviewVideo = false;
+    private boolean enablePreviewAudio = false;
     private boolean is_checked_num;
     private boolean enableVoice;
     private int overrideWidth, overrideHeight;
+    private float sizeMultiplier;
     private Animation animation;
     private PictureSelectionConfig config;
+    private int mimeType;
+    private boolean zoomAnim;
 
     public PictureImageGridAdapter(Context context, PictureSelectionConfig config) {
         this.context = context;
@@ -57,14 +67,15 @@ public class PictureImageGridAdapter extends RecyclerView.Adapter<RecyclerView.V
         this.maxSelectNum = config.maxSelectNum;
         this.enablePreview = config.enablePreview;
         this.enablePreviewVideo = config.enPreviewVideo;
+        this.enablePreviewAudio = config.enablePreviewAudio;
         this.is_checked_num = config.checkNumMode;
         this.overrideWidth = config.overrideWidth;
         this.overrideHeight = config.overrideHeight;
         this.enableVoice = config.openClickSound;
+        this.sizeMultiplier = config.sizeMultiplier;
+        this.mimeType = config.mimeType;
+        this.zoomAnim = config.zoomAnim;
         animation = OptAnimationLoader.loadAnimation(context, R.anim.modal_in);
-        overrideWidth = overrideWidth <= 0 ? 180 : overrideWidth;
-        overrideHeight = overrideHeight <= 0 ? 180 : overrideHeight;
-        DebugUtil.i("image glide wh:", overrideWidth + ":" + overrideHeight);
     }
 
     public void setShowCamera(boolean showCamera) {
@@ -137,7 +148,6 @@ public class PictureImageGridAdapter extends RecyclerView.Adapter<RecyclerView.V
             });
         } else {
             final ViewHolder contentHolder = (ViewHolder) holder;
-            DebugUtil.i("onBindViewHolder:", "this is refresh position--->" + position);
             final LocalMedia image = images.get(showCamera ? position - 1 : position);
             image.position = contentHolder.getAdapterPosition();
             String path = image.getPath();
@@ -152,20 +162,42 @@ public class PictureImageGridAdapter extends RecyclerView.Adapter<RecyclerView.V
             final int picture = PictureMimeType.isPictureType(pictureType);
             boolean gif = PictureMimeType.isGif(pictureType);
             contentHolder.tv_isGif.setVisibility(gif ? View.VISIBLE : View.GONE);
-            contentHolder.tv_duration.setVisibility(picture == PictureConfig.TYPE_VIDEO
-                    ? View.VISIBLE : View.GONE);
+            if (mimeType == PictureMimeType.ofAudio()) {
+                contentHolder.tv_duration.setVisibility(View.VISIBLE);
+                Drawable drawable = ContextCompat.getDrawable(context, R.drawable.picture_audio);
+                StringUtils.modifyTextViewDrawable(contentHolder.tv_duration, drawable, 0);
+            } else {
+                Drawable drawable = ContextCompat.getDrawable(context, R.drawable.video_icon);
+                StringUtils.modifyTextViewDrawable(contentHolder.tv_duration, drawable, 0);
+                contentHolder.tv_duration.setVisibility(picture == PictureConfig.TYPE_VIDEO
+                        ? View.VISIBLE : View.GONE);
+            }
             int width = image.getWidth();
             int height = image.getHeight();
             int h = width * 5;
             contentHolder.tv_long_chart.setVisibility(height > h ? View.VISIBLE : View.GONE);
             long duration = image.getDuration();
             contentHolder.tv_duration.setText(DateUtils.timeParse(duration));
-
-            Glide.with(context).load(path).asBitmap().diskCacheStrategy(DiskCacheStrategy.RESULT)
-                    .centerCrop().placeholder(R.drawable.image_placeholder)
-                    .override(overrideWidth, overrideHeight).into(contentHolder.iv_picture);
-
-            if (enablePreview || enablePreviewVideo) {
+            if (mimeType == PictureMimeType.ofAudio()) {
+                contentHolder.iv_picture.setImageResource(R.drawable.audio_placeholder);
+            } else {
+                RequestOptions options = new RequestOptions();
+                if (overrideWidth <= 0 && overrideHeight <= 0) {
+                    options.sizeMultiplier(sizeMultiplier);
+                } else {
+                    options.override(overrideWidth, overrideHeight);
+                }
+                options.diskCacheStrategy(DiskCacheStrategy.ALL);
+                options.centerCrop();
+                options.placeholder(R.drawable.image_placeholder);
+                Glide.with(context)
+                        .asBitmap()
+                        .load(path)
+                        .apply(options)
+                        .transition(new BitmapTransitionOptions().crossFade(500))
+                        .into(contentHolder.iv_picture);
+            }
+            if (enablePreview || enablePreviewVideo || enablePreviewAudio) {
                 contentHolder.ll_check.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
@@ -177,11 +209,16 @@ public class PictureImageGridAdapter extends RecyclerView.Adapter<RecyclerView.V
             contentHolder.contentView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+
                     if (picture == PictureConfig.TYPE_IMAGE && (enablePreview
                             || selectMode == PictureConfig.SINGLE)) {
                         int index = showCamera ? position - 1 : position;
                         imageSelectChangedListener.onPictureClick(image, index);
                     } else if (picture == PictureConfig.TYPE_VIDEO && (enablePreviewVideo
+                            || selectMode == PictureConfig.SINGLE)) {
+                        int index = showCamera ? position - 1 : position;
+                        imageSelectChangedListener.onPictureClick(image, index);
+                    } else if (picture == PictureConfig.TYPE_AUDIO && (enablePreviewAudio
                             || selectMode == PictureConfig.SINGLE)) {
                         int index = showCamera ? position - 1 : position;
                         imageSelectChangedListener.onPictureClick(image, index);
@@ -201,10 +238,16 @@ public class PictureImageGridAdapter extends RecyclerView.Adapter<RecyclerView.V
 
     public class HeaderViewHolder extends RecyclerView.ViewHolder {
         View headerView;
+        TextView tv_title_camera;
 
         public HeaderViewHolder(View itemView) {
             super(itemView);
             headerView = itemView;
+            tv_title_camera = (TextView) itemView.findViewById(R.id.tv_title_camera);
+            String title = mimeType == PictureMimeType.ofAudio() ?
+                    context.getString(R.string.picture_tape)
+                    : context.getString(R.string.picture_take_picture);
+            tv_title_camera.setText(title);
         }
     }
 
@@ -289,6 +332,7 @@ public class PictureImageGridAdapter extends RecyclerView.Adapter<RecyclerView.V
                     selectImages.remove(media);
                     DebugUtil.i("selectImages remove::", config.selectionMedias.size() + "");
                     subSelectPosition();
+                    disZoom(contentHolder.iv_picture);
                     break;
                 }
             }
@@ -297,6 +341,7 @@ public class PictureImageGridAdapter extends RecyclerView.Adapter<RecyclerView.V
             DebugUtil.i("selectImages add::", config.selectionMedias.size() + "");
             image.setNum(selectImages.size());
             VoiceUtils.playVoice(context, enableVoice);
+            zoom(contentHolder.iv_picture);
         }
         //通知点击项发生了改变
         notifyItemChanged(contentHolder.getAdapterPosition());
@@ -349,4 +394,27 @@ public class PictureImageGridAdapter extends RecyclerView.Adapter<RecyclerView.V
         this.imageSelectChangedListener = imageSelectChangedListener;
     }
 
+    private void zoom(ImageView iv_img) {
+        if (zoomAnim) {
+            AnimatorSet set = new AnimatorSet();
+            set.playTogether(
+                    ObjectAnimator.ofFloat(iv_img, "scaleX", 1f, 1.12f),
+                    ObjectAnimator.ofFloat(iv_img, "scaleY", 1f, 1.12f)
+            );
+            set.setDuration(DURATION);
+            set.start();
+        }
+    }
+
+    private void disZoom(ImageView iv_img) {
+        if (zoomAnim) {
+            AnimatorSet set = new AnimatorSet();
+            set.playTogether(
+                    ObjectAnimator.ofFloat(iv_img, "scaleX", 1.12f, 1f),
+                    ObjectAnimator.ofFloat(iv_img, "scaleY", 1.12f, 1f)
+            );
+            set.setDuration(DURATION);
+            set.start();
+        }
+    }
 }

@@ -2,6 +2,7 @@ package com.luck.picture.lib.widget;
 
 import android.content.Context;
 import android.graphics.Color;
+import android.graphics.Rect;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.os.Build;
@@ -9,7 +10,6 @@ import android.os.Handler;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.animation.Animation;
@@ -48,9 +48,11 @@ public class FolderPopWindow extends PopupWindow implements View.OnClickListener
     private LinearLayout id_ll_root;
     private TextView picture_title;
     private Drawable drawableUp, drawableDown;
+    private int mimeType;
 
-    public FolderPopWindow(Context context) {
+    public FolderPopWindow(Context context, int mimeType) {
         this.context = context;
+        this.mimeType = mimeType;
         window = LayoutInflater.from(context).inflate(R.layout.picture_window_folder, null);
         this.setContentView(window);
         this.setWidth(ScreenUtils.getScreenWidth(context));
@@ -80,6 +82,7 @@ public class FolderPopWindow extends PopupWindow implements View.OnClickListener
     }
 
     public void bindFolder(List<LocalMediaFolder> folders) {
+        adapter.setMimeType(mimeType);
         adapter.bindFolderData(folders);
     }
 
@@ -91,25 +94,19 @@ public class FolderPopWindow extends PopupWindow implements View.OnClickListener
     public void showAsDropDown(View anchor) {
         try {
             if (Build.VERSION.SDK_INT >= 24) {
-                int[] location = new int[2];
-                anchor.getLocationOnScreen(location);
-                int height = anchor.getHeight();
-                int x = location[0];
-                int y = location[1];
-                super.showAtLocation(anchor, Gravity.NO_GRAVITY, x, y + height);
-            } else {
-                super.showAsDropDown(anchor);
+                Rect rect = new Rect();
+                anchor.getGlobalVisibleRect(rect);
+                int h = anchor.getResources().getDisplayMetrics().heightPixels - rect.bottom;
+                setHeight(h);
             }
-
+            super.showAsDropDown(anchor);
             isDismiss = false;
             recyclerView.startAnimation(animationIn);
             StringUtils.modifyTextViewDrawable(picture_title, drawableUp, 2);
         } catch (Exception e) {
             e.printStackTrace();
         }
-
     }
-
 
     public void setOnItemClickListener(PictureAlbumDirectoryAdapter.OnItemClickListener onItemClickListener) {
         adapter.setOnItemClickListener(onItemClickListener);
@@ -159,6 +156,7 @@ public class FolderPopWindow extends PopupWindow implements View.OnClickListener
             }
         });
     }
+
 
     /**
      * 设置选中状态

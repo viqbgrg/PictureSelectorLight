@@ -7,6 +7,7 @@ import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.support.v4.app.FragmentActivity;
@@ -17,6 +18,7 @@ import com.luck.picture.lib.compress.CompressImageOptions;
 import com.luck.picture.lib.compress.CompressInterface;
 import com.luck.picture.lib.compress.LubanOptions;
 import com.luck.picture.lib.config.PictureConfig;
+import com.luck.picture.lib.config.PictureMimeType;
 import com.luck.picture.lib.config.PictureSelectionConfig;
 import com.luck.picture.lib.dialog.PictureDialog;
 import com.luck.picture.lib.entity.EventEntity;
@@ -43,7 +45,7 @@ public class PictureBaseActivity extends FragmentActivity {
             enPreviewVideo, checkNumMode, openClickSound, numComplete, camera,
             previewEggs, statusFont, previewStatusFont;
     protected String cameraPath;
-    protected String originalPath;
+    protected String originalPath, outputCameraPath;
     protected PictureDialog dialog;
     protected PictureDialog compressDialog;
     protected List<LocalMedia> selectionMedias;
@@ -71,12 +73,16 @@ public class PictureBaseActivity extends FragmentActivity {
      */
     private void initConfig() {
         camera = config.camera;
+        outputCameraPath = config.outputCameraPath;
         statusFont = AttrsUtils.getTypeValueBoolean
                 (this, R.attr.picture_statusFontColor);
         previewStatusFont = AttrsUtils.getTypeValueBoolean
                 (this, R.attr.picture_preview_statusFontColor);
         mimeType = config.mimeType;
         selectionMedias = config.selectionMedias;
+        if (selectionMedias == null) {
+            selectionMedias = new ArrayList<>();
+        }
         selectionMode = config.selectionMode;
         if (selectionMode == PictureConfig.SINGLE) {
             selectionMedias = new ArrayList<>();
@@ -227,7 +233,6 @@ public class PictureBaseActivity extends FragmentActivity {
                 }).compress();
     }
 
-
     /**
      * 判断拍照 图片是否旋转
      *
@@ -273,7 +278,8 @@ public class PictureBaseActivity extends FragmentActivity {
         if (folders.size() == 0) {
             // 没有相册 先创建一个最近相册出来
             LocalMediaFolder newFolder = new LocalMediaFolder();
-            String folderName = getString(R.string.picture_camera_roll);
+            String folderName = mimeType == PictureMimeType.ofAudio() ?
+                    getString(R.string.picture_all_audio) : getString(R.string.picture_camera_roll);
             newFolder.setName(folderName);
             newFolder.setPath("");
             newFolder.setFirstImagePath("");
@@ -365,6 +371,7 @@ public class PictureBaseActivity extends FragmentActivity {
                         : imageCursor.getColumnIndex(MediaStore.Images.Media.DATE_ADDED));
                 int duration = DateUtils.dateDiffer(date);
                 imageCursor.close();
+                // DCIM文件下最近时间30s以内的图片，可以判定是最新生成的重复照片
                 return duration <= 30 ? id : -1;
             } else {
                 return -1;
@@ -394,5 +401,47 @@ public class PictureBaseActivity extends FragmentActivity {
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    /**
+     * 录音
+     *
+     * @param data
+     */
+    protected void isAudio(Intent data) {
+        if (data != null && mimeType == PictureMimeType.ofAudio()) {
+            try {
+                Uri uri = data.getData();
+                String audioPath;
+                if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.KITKAT) {
+                    audioPath = uri.getPath();
+                } else {
+                    audioPath = getAudioFilePathFromUri(uri);
+                }
+                PictureFileUtils.copyAudioFile(audioPath, cameraPath);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+    /**
+     * 获取刚录取的音频文件
+     *
+     * @param uri
+     * @return
+     */
+    protected String getAudioFilePathFromUri(Uri uri) {
+        String path = "";
+        try {
+            Cursor cursor = getContentResolver()
+                    .query(uri, null, null, null, null);
+            cursor.moveToFirst();
+            int index = cursor.getColumnIndex(MediaStore.Audio.AudioColumns.DATA);
+            path = cursor.getString(index);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return path;
     }
 }

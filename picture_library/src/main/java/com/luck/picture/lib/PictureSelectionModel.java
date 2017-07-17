@@ -2,6 +2,8 @@ package com.luck.picture.lib;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.support.annotation.FloatRange;
+import android.support.annotation.IntRange;
 import android.support.annotation.StyleRes;
 import android.support.v4.app.Fragment;
 
@@ -9,6 +11,7 @@ import com.luck.picture.lib.config.PictureSelectionConfig;
 import com.luck.picture.lib.entity.LocalMedia;
 import com.luck.picture.lib.tools.DoubleUtils;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -105,7 +108,8 @@ public class PictureSelectionModel {
      * @param height glide height
      * @return
      */
-    public PictureSelectionModel glideOverride(int width, int height) {
+    public PictureSelectionModel glideOverride(@IntRange(from = 100) int width,
+                                               @IntRange(from = 100) int height) {
         selectionConfig.overrideWidth = width;
         selectionConfig.overrideHeight = height;
         return this;
@@ -120,6 +124,14 @@ public class PictureSelectionModel {
         return this;
     }
 
+    /**
+     * @param zoomAnim Picture list zoom anim
+     * @return
+     */
+    public PictureSelectionModel isZoomAnim(boolean zoomAnim) {
+        selectionConfig.zoomAnim = zoomAnim;
+        return this;
+    }
 
     /**
      * @param compressMode compress mode and  PictureConfig.SYSTEM_COMPRESS_MODE or PictureConfig.LUBAN_COMPRESS_MODE
@@ -127,6 +139,15 @@ public class PictureSelectionModel {
      */
     public PictureSelectionModel compressMode(int compressMode) {
         selectionConfig.compressMode = compressMode;
+        return this;
+    }
+
+    /**
+     * @param enablePreviewAudio Do you want to play audio ?
+     * @return
+     */
+    public PictureSelectionModel enablePreviewAudio(boolean enablePreviewAudio) {
+        selectionConfig.enablePreviewAudio = enablePreviewAudio;
         return this;
     }
 
@@ -161,6 +182,17 @@ public class PictureSelectionModel {
     }
 
     /**
+     * @param sizeMultiplier The multiplier to apply to the
+     *                       {@link com.bumptech.glide.request.target.Target}'s dimensions when
+     *                       loading the resource.
+     * @return
+     */
+    public PictureSelectionModel sizeMultiplier(@FloatRange(from = 0.1f) float sizeMultiplier) {
+        selectionConfig.sizeMultiplier = sizeMultiplier;
+        return this;
+    }
+
+    /**
      * @param isCompress Whether to open compress
      * @return
      */
@@ -184,6 +216,15 @@ public class PictureSelectionModel {
      */
     public PictureSelectionModel isCamera(boolean isCamera) {
         selectionConfig.isCamera = isCamera;
+        return this;
+    }
+
+    /**
+     * @param outputCameraPath Camera save path
+     * @return
+     */
+    public PictureSelectionModel setOutputCameraPath(String outputCameraPath) {
+        selectionConfig.outputCameraPath = outputCameraPath;
         return this;
     }
 
@@ -228,6 +269,9 @@ public class PictureSelectionModel {
      * @return
      */
     public PictureSelectionModel selectionMedia(List<LocalMedia> selectionMedia) {
+        if (selectionMedia == null) {
+            selectionMedia = new ArrayList<>();
+        }
         selectionConfig.selectionMedias = selectionMedia;
         return this;
     }
